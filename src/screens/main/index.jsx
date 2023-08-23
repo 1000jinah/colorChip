@@ -8,38 +8,74 @@ import {
   CssBaseline,
   InputAdornment,
   IconButton,
-  Chip
+  Chip,
+  Typography,
+  Alert,
 } from "@mui/material";
-import { ClearOutlined } from "@mui/icons-material";
+import {
+  ClearOutlined,
+  DarkModeOutlined,
+  LightModeOutlined,
+} from "@mui/icons-material";
 
 const Main = () => {
-  const [colorCode, setColorCode] = useState("");
   const [colorCodes, setColorCodes] = useState("");
+  const [pickedColor, setPickedColor] = useState("");
   const [displayColors, setDisplayColors] = useState([]);
   const [themeMode, setThemeMode] = useState("light");
   const [selectedColorBox, setSelectedColorBox] = useState(null);
-  const [showColorValues, setShowColorValues] = useState(true); // State for toggling color values
+  const [showColorValues, setShowColorValues] = useState(true);
+  const [editingColorBox, setEditingColorBox] = useState(null);
+  const [showChips, setShowChips] = useState(false);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
 
+  const copyColorValue = (e, value) => {
+    e.stopPropagation(); // Prevent colorBox onClick event from being triggered
+
+    const formattedValue = value
+      .replace(/[\s()]/g, ",")
+      .replace(/,,+/g, ",") // Replace consecutive commas with a single comma
+      .replace(/,(\s*rgb),/g, ",$1(") // Change ", rgb" to " rgb("
+      .replace(/,(\s*hsl),/g, "),$1(") // Change ", hsl" to ") hsl("
+      .replace(/%,\s*/, "test") // Change "%," to "%"
+      .replace(/%,/, "%)") // Change "%," to "%)"
+      .replace(/test\s*/, "%,") // Change "%," to "%"
+      .replace(/,/g, ", "); // Add space after commas
+
+    const textarea = document.createElement("textarea");
+    textarea.value = formattedValue;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+
+    setShowCopySuccess(true); // Show the success message
+    setTimeout(() => {
+      setShowCopySuccess(false); // Hide the success message after 3 seconds
+    }, 60000);
+  };
+
+  const handleColorBoxClick = (colorObject) => {
+    setEditingColorBox(colorObject.id);
+  };
+
+  const handleColorBoxBlur = () => {
+    setEditingColorBox(null);
+  };
   const toggleTheme = () => {
     setThemeMode(themeMode === "light" ? "dark" : "light");
   };
-
-  const toggleColorValues = () => {
-    setShowColorValues(!showColorValues);
-  };
+  //1)
+  // const toggleColorValues = () => {
+  //   setShowColorValues(!showColorValues);
+  // };
 
   // Create theme based on themeMode
   const theme = createTheme({
     palette: {
-      mode: themeMode
-    }
+      mode: themeMode,
+    },
   });
-
-  const applyColor = () => {
-    const updatedColorCode = colorCode.replace("#", "");
-    applyColors([updatedColorCode]);
-    setColorCode("");
-  };
 
   const applyColors = (codes) => {
     const validColorCodes = codes
@@ -65,9 +101,12 @@ const Main = () => {
       const hsl = rgbToHsl(r, g, b);
       const rgb = `rgb(${r}, ${g}, ${b})`;
       const hsla = `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;
+
+      const uniqueId = new Date().getTime() + index;
+
       return {
-        id: index,
-        value: `#${formattedHexValue} (${rgb}, ${hsla})`
+        id: uniqueId, // Use the unique ID
+        value: `#${formattedHexValue} ${rgb} ${hsla}`,
       };
     });
 
@@ -129,141 +168,331 @@ const Main = () => {
   };
 
   const handleChipDelete = (id) => {
+    const colorToDelete = displayColors.find((color) => color.id === id);
     const updatedDisplayColors = displayColors.filter(
       (color) => color.id !== id
     );
     setDisplayColors(updatedDisplayColors);
-    setSelectedColorBox(null); // Clear selected color box
+
+    if (selectedColorBox === colorToDelete.id) {
+      setSelectedColorBox(null); // Clear selected color box if it matches the deleted chip's color
+    }
   };
 
+  const handleReset = () => {
+    setDisplayColors([]);
+    setSelectedColorBox(null);
+  };
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box>
-        <Box>
-          <TextField
-            label="Enter color code"
-            value={colorCode}
-            onChange={(e) => setColorCode(e.target.value)}
-            variant="outlined"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {colorCode && (
-                    <IconButton
-                      onClick={() => setColorCode("")}
-                      edge="end"
-                      aria-label="Clear Color Code"
-                    >
-                      <ClearOutlined />
-                    </IconButton>
-                  )}
-                </InputAdornment>
-              )
-            }}
-          />
-          <Button variant="contained" onClick={applyColor}>
-            Apply Color
-          </Button>
-          <TextField
-            label="Enter color codes (comma separated)"
-            value={colorCodes}
-            multiline // Allow multiple lines of input
-            onChange={(e) => {
-              const inputValue = e.target.value
-                .replace(/#/g, "") // Remove # symbol
-                .replace(/,/g, "") // Remove comma symbol
-                .replace(/[^\sA-Fa-f0-9]/g, ""); // Remove any characters other than hex digits
-              const formattedValue = inputValue
-                .replace(/([A-Fa-f0-9]{6})/g, "$1,") // Add comma after every 6 characters
-                .replace(/,$/, ""); // Remove trailing comma if present
-              setColorCodes(formattedValue);
-            }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {colorCodes && (
-                    <IconButton
-                      onClick={() => setColorCodes("")}
-                      edge="end"
-                      aria-label="Clear Color Code"
-                    >
-                      <ClearOutlined />
-                    </IconButton>
-                  )}
-                </InputAdornment>
-              )
-            }}
-            variant="outlined"
-          />
-
-          <Button
-            variant="contained"
-            onClick={() => {
-              const processedCodes = colorCodes
-                .replace(/\s+/g, "")
-                .split(",")
-                .map((code) =>
-                  code
-                    .replace(/#/g, "")
-                    .replace(/(.{6})/g, '"$1",')
-                    .slice(0, -2)
-                )
-                .map((code) => code.replace(/""/g, '"'))
-                .map((code) => code.replace(/^"|"$/g, "")); // Remove quotes from the beginning and end
-
-              applyColors(processedCodes);
-
-              // Display the processed codes in the console
-              console.log("Processed Color Codes:", processedCodes);
+      <Box
+        sx={{
+          p: 5,
+          height: "100vh",
+          textAlign: "center",
+          position: "relative",
+        }}
+      >
+        <Typography variant="h2">Color Chip</Typography>
+        <IconButton
+          sx={{ position: "absolute", top: 20, right: 20 }}
+          onClick={toggleTheme}
+        >
+          {themeMode === "light" ? (
+            <LightModeOutlined
+              sx={{
+                fontSize: 30,
+                color: "#333",
+              }}
+            />
+          ) : (
+            <DarkModeOutlined
+              sx={{
+                fontSize: 30,
+                color: "#e9e9e9",
+              }}
+            />
+          )}
+        </IconButton>
+        <Box sx={{ py: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            Apply Colors
-          </Button>
+            <input
+              style={{ width: "100px", height: "100px" }}
+              type="color"
+              value={pickedColor}
+              onChange={(e) => {
+                const colorValue = e.target.value;
+                setPickedColor(colorValue);
+              }}
+              onBlur={(e) => {
+                const hexColor = e.target.value.slice(1); // Remove the "#" symbol
+                const hexCode = hexColor.slice(0, 6);
 
-          <Button variant="contained" onClick={toggleTheme}>
-            Toggle Theme
-          </Button>
-          <Button variant="contained" onClick={toggleColorValues}>
-            Toggle Color Values
-          </Button>
-          <input
-            type="color"
-            value={colorCode}
-            onChange={(e) => setColorCode(e.target.value)}
-          />
-        </Box>
-        <Box sx={{ mb: 3 }}>
-          {displayColors
-            .filter((colorObject) => selectedColorBox !== colorObject.id)
-            .map((colorObject) => (
-              <Chip
-                key={`chip_${colorObject.id}`}
-                label={colorObject.value}
-                onDelete={() => handleChipDelete(colorObject.id)}
-                color="default" // Set chip color to default to ensure text color is determined by theme
-                style={{
-                  backgroundColor: colorObject.value.split(" ")[0],
-                  color: getTextColor(colorObject.value) // Set text color based on brightness
-                }}
-              />
-            ))}
-        </Box>
+                // Update the color codes TextField when the color picker dialog is closed
+                setColorCodes((prevCodes) =>
+                  prevCodes ? prevCodes + `,#${hexCode}` : `#${hexCode}`
+                );
 
-        <div>
-          {displayColors.map((colorObject, index) => (
+                // Add the selected color to displayColors
+                const r = parseInt(hexCode.slice(0, 2), 16);
+                const g = parseInt(hexCode.slice(2, 4), 16);
+                const b = parseInt(hexCode.slice(4, 6), 16);
+                const hsl = rgbToHsl(r, g, b);
+                const rgb = `rgb(${r}, ${g}, ${b})`;
+                const hsla = `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;
+                const newColor = {
+                  id: displayColors.length,
+                  value: `#${hexCode}  ${rgb}  ${hsla}`,
+                };
+                setDisplayColors((prevColors) => [...prevColors, newColor]);
+              }}
+            />
+
+            <TextField
+              label="색상코드를 기입해주세요"
+              sx={{
+                maxWidth: 550,
+                width: "100%",
+                mb: 3,
+                height: "70px",
+                overflowY: "auto",
+                overflowX: "clip",
+              }}
+              value={colorCodes}
+              multiline // Allow multiple lines of input
+              onChange={(e) => {
+                const inputValue = e.target.value
+                  .replace(/,/g, "") // Remove comma symbol
+                  .replace(/[^\sA-Fa-f0-9#]/g, ""); // Remove any characters other than hex digits and #
+                const formattedValue = inputValue
+                  .replace(/([A-Fa-f0-9]{6})/g, "$1,") // Add comma after every 6 characters
+                  .replace(/,$/, ""); // Remove trailing comma if present
+                setColorCodes(formattedValue);
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {colorCodes && (
+                      <IconButton
+                        onClick={() => setColorCodes("")}
+                        edge="end"
+                        aria-label="Clear Color Code"
+                      >
+                        <ClearOutlined />
+                      </IconButton>
+                    )}
+                  </InputAdornment>
+                ),
+              }}
+              variant="standard"
+            />
+
             <Box
-              key={`${colorObject.id}_${index}`} // Appending index to ensure uniqueness
-              width={400}
-              height={100}
-              bgcolor={colorObject.value.split(" ")[0]} // Display only the HEX color
-              color={getTextColor(colorObject.value)}
+              sx={{
+                maxWidth: 550,
+                width: "100%",
+                mb: 3,
+                display: "flex",
+                justifyContent: "space-between",
+              }}
             >
-              {showColorValues &&
-                `${colorObject.value}`}
+              <Box>
+                <Button
+                  sx={{ mr: 1 }}
+                  variant="contained"
+                  onClick={() => {
+                    const processedCodes = colorCodes
+                      .replace(/\s+/g, "")
+                      .split(",")
+                      .map((code) =>
+                        code
+                          .replace(/#/g, "") // Remove # symbol
+                          .replace(/(.{6})/g, '"$1",')
+                          .slice(0, -2)
+                      )
+                      .map((code) => code.replace(/""/g, '"'))
+                      .map((code) => code.replace(/^"|"$/g, "")); // Remove quotes from the beginning and end
+
+                    applyColors(processedCodes);
+
+                    // Display the processed codes in the console
+                    console.log("Processed Color Codes:", processedCodes);
+                  }}
+                >
+                  색상 추가
+                </Button>
+                <Button
+                  sx={{ mr: 1 }}
+                  variant="contained"
+                  onClick={() => setShowChips(!showChips)}
+                >
+                  {showChips ? "색상 칩 제거" : "색상 칩 보기"}
+                </Button>
+                {/* 1) */}
+                {/* <Button variant="contained" onClick={toggleColorValues}>
+                  색상 속성 코드 생략
+                </Button> */}
+              </Box>
+              <Box>
+                <Button variant="contained" color="error" onClick={handleReset}>
+                  리셋
+                </Button>
+              </Box>
             </Box>
-          ))}
-        </div>
+          </Box>
+          <Box
+            sx={{
+              mb: 3,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+              gap: "1rem",
+            }}
+          >
+            {showChips &&
+              displayColors
+                .filter((colorObject) => selectedColorBox !== colorObject.id)
+                .map((colorObject) => (
+                  <Chip
+                    key={`chip_${colorObject.id}`}
+                    label={colorObject.value}
+                    onDelete={() => handleChipDelete(colorObject.id)}
+                    onClick={(e) => copyColorValue(e, colorObject.value)}
+                    color="default"
+                    style={{
+                      backgroundColor: colorObject.value.split(" ")[0],
+                      color: getTextColor(colorObject.value),
+                    }}
+                    sx={{
+                      ".MuiChip-deleteIcon": {
+                        backgroundColor: colorObject.value.split(" ")[0],
+                        color: getTextColor(colorObject.value),
+                        ":hover": {
+                          backgroundColor: colorObject.value.split(" ")[0],
+                          color: getTextColor(colorObject.value),
+                        },
+                      },
+                    }}
+                  />
+                ))}
+          </Box>
+
+          <div style={{ display: "flex", flexWrap: "wrap" }}>
+            {displayColors.map((colorObject, index) => (
+              <Box
+                key={`colorBox_${colorObject.id}`}
+                width={100}
+                height={100}
+                bgcolor={colorObject.value.split(" ")[0]}
+                color={getTextColor(colorObject.value)}
+                onClick={() => handleColorBoxClick(colorObject)}
+                onBlur={handleColorBoxBlur}
+                sx={{
+                  position: "relative",
+                  cursor: "pointer",
+                  border:
+                    editingColorBox === colorObject.id
+                      ? "2px dotted gold"
+                      : "none", // Add this line
+                }}
+              >
+                {editingColorBox === colorObject.id ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+
+                      justifyContent: "space-around",
+                      height: "100%",
+                    }}
+                  >
+                    <Button
+                      sx={{ p: 0.5, fontSize: 12 }}
+                      variant="contained"
+                      onClick={(e) => copyColorValue(e, colorObject.value)}
+                    >
+                      코드복사
+                    </Button>
+                    <input
+                      type="color"
+                      value={colorCodes}
+                      onChange={(e) => {
+                        const colorValue = e.target.value;
+                        setPickedColor(colorValue);
+
+                        const hexColor = colorValue.slice(1); // Remove the "#" symbol
+                        const hexCode = hexColor.slice(0, 6);
+
+                        setColorCodes(`#${hexCode}`);
+
+                        const r = parseInt(hexCode.slice(0, 2), 16);
+                        const g = parseInt(hexCode.slice(2, 4), 16);
+                        const b = parseInt(hexCode.slice(4, 6), 16);
+                        const hsl = rgbToHsl(r, g, b);
+                        const rgb = `rgb(${r}, ${g}, ${b})`;
+                        const hsla = `hsl(${hsl[0]}, ${hsl[1]}%, ${hsl[2]}%)`;
+                        const updatedColorObject = {
+                          ...colorObject,
+                          value: `#${hexCode} ${rgb} ${hsla}`,
+                        };
+
+                        const updatedDisplayColors = displayColors.map(
+                          (color) =>
+                            color.id === colorObject.id
+                              ? updatedColorObject
+                              : color
+                        );
+                        setDisplayColors(updatedDisplayColors);
+                      }}
+                      onBlur={handleColorBoxBlur}
+                    />
+                  </Box>
+                ) : (
+                  showColorValues && (
+                    <React.Fragment>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          fontSize: "0.78rem",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: "100%",
+                        }}
+                      >
+                        {/* {colorObject.value} */}
+                      </Box>
+                    </React.Fragment>
+                  )
+                )}
+              </Box>
+            ))}
+          </div>
+        </Box>
+        {showCopySuccess && (
+          <Alert
+            severity="success"
+            color="info"
+            sx={{
+              position: "absolute",
+              color: "#29b6f6",
+              backgroundColor: "#e5f6fd",
+              bottom: 20,
+              right: 20,
+              zIndex: 1,
+              display: showCopySuccess ? "flex" : "none", // Apply fadeout animation if showCopySuccess is true
+            }}
+          >
+            색상 코드 복사가 완료되었습니다!
+          </Alert>
+        )}
       </Box>
     </ThemeProvider>
   );
