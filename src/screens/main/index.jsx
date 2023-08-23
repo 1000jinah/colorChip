@@ -52,7 +52,7 @@ const Main = () => {
     setShowCopySuccess(true); // Show the success message
     setTimeout(() => {
       setShowCopySuccess(false); // Hide the success message after 3 seconds
-    }, 60000);
+    }, 4000);
   };
 
   const handleColorBoxClick = (colorObject) => {
