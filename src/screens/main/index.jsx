@@ -11,9 +11,12 @@ import {
   Chip,
   Typography,
   Alert,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import {
   ClearOutlined,
+  CloseSharp,
   DarkModeOutlined,
   LightModeOutlined,
 } from "@mui/icons-material";
@@ -28,11 +31,65 @@ const Main = () => {
   const [editingColorBox, setEditingColorBox] = useState(null);
   const [showChips, setShowChips] = useState(false);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const [colorFormat, setColorFormat] = useState("hex"); // 기본값은 "hex"로 설정
+  const [selectedColorBoxes, setSelectedColorBoxes] = useState([]);
+  // const copySelectedColorValues = () => {
+  //   const selectedColors = displayColors.filter((colorObject) =>
+  //     selectedColorBoxes.includes(colorObject.id)
+  //   );
+
+  //   if (selectedColors.length === 0) {
+  //     // No color boxes selected, do nothing
+  //     return;
+  //   }
+
+  //   const formattedValues = selectedColors.map((colorObject) => {
+  //     // Process and format the value based on the selected format (colorFormat state)
+  //     let formattedValue = colorObject.value
+  //       .replace(/[\s()]/g, ",")
+  //       .replace(/,,+/g, ",")
+  //       .replace(/,(\s*rgb),/g, ",$1(")
+  //       .replace(/,(\s*hsl),/g, "),$1(")
+  //       .replace(/%,\s*/, "test")
+  //       .replace(/%,/, "%)")
+  //       .replace(/test\s*/, "%,")
+  //       .replace(/,/g, ", ");
+
+  //     if (colorFormat === "hex") {
+  //       // Display hex format: #RRGGBB
+  //       formattedValue = formattedValue.slice(0, formattedValue.indexOf(","));
+  //     } else if (colorFormat === "rgb") {
+  //       // Display RGB format: rgb(R, G, B)
+  //       formattedValue = formattedValue.slice(
+  //         formattedValue.indexOf("rgb("),
+  //         formattedValue.indexOf(")") + 1
+  //       );
+  //     } else if (colorFormat === "hsl") {
+  //       // Display HSL format: hsl(H, S%, L%)
+  //       formattedValue = formattedValue.slice(formattedValue.indexOf("hsl("));
+  //     }
+
+  //     return formattedValue;
+  //   });
+
+  //   const formattedText = formattedValues.join(" ");
+  //   const textarea = document.createElement("textarea");
+  //   textarea.value = formattedText;
+  //   document.body.appendChild(textarea);
+  //   textarea.select();
+  //   document.execCommand("copy");
+  //   document.body.removeChild(textarea);
+
+  //   setShowCopySuccess(true);
+  //   setTimeout(() => {
+  //     setShowCopySuccess(false);
+  //   }, 4000);
+  // };
 
   const copyColorValue = (e, value) => {
     e.stopPropagation(); // Prevent colorBox onClick event from being triggered
 
-    const formattedValue = value
+    let formattedValue = value
       .replace(/[\s()]/g, ",")
       .replace(/,,+/g, ",") // Replace consecutive commas with a single comma
       .replace(/,(\s*rgb),/g, ",$1(") // Change ", rgb" to " rgb("
@@ -41,9 +98,33 @@ const Main = () => {
       .replace(/%,/, "%)") // Change "%," to "%)"
       .replace(/test\s*/, "%,") // Change "%," to "%"
       .replace(/,/g, ", "); // Add space after commas
+    // hex 코드 복사
+    const hexIndex = formattedValue.indexOf(",");
+    const hexFormattedValue = formattedValue.slice(0, hexIndex);
+    // rgb 코드 복사
+    const rgbStartIndex = formattedValue.indexOf("rgb(");
+    const rgbEndIndex = formattedValue.indexOf(")");
+    const rgbFormattedValue = formattedValue.slice(
+      rgbStartIndex,
+      rgbEndIndex + 1
+    );
+    // hsl 코드 복사
+    const hslStartIndex = formattedValue.indexOf("hsl(");
+    const hslFormattedValue = formattedValue.slice(hslStartIndex);
 
+    if (colorFormat === "hex") {
+      // Display hex format: #RRGGBB
+      formattedValue = hexFormattedValue;
+    } else if (colorFormat === "rgb") {
+      // Display RGB format: rgb(R, G, B)
+      formattedValue = rgbFormattedValue;
+    } else if (colorFormat === "hsl") {
+      // Display HSL format: hsl(H, S%, L%)
+      formattedValue = hslFormattedValue;
+    }
     const textarea = document.createElement("textarea");
     textarea.value = formattedValue;
+    console.log(formattedValue, "Asdasd");
     document.body.appendChild(textarea);
     textarea.select();
     document.execCommand("copy");
@@ -58,10 +139,27 @@ const Main = () => {
   const handleColorBoxClick = (colorObject) => {
     setEditingColorBox(colorObject.id);
   };
+  // const handleColorBoxClick = (colorObject) => {
+  //   if (selectedColorBoxes.includes(colorObject.id)) {
+  //     // Color box is already selected, remove it from the selection
+  //     setSelectedColorBoxes((prevSelected) =>
+  //       prevSelected.filter((id) => id !== colorObject.id)
+        
+  //     );
+  //   } else {
+  //     // Color box is not selected, add it to the selection
+  //     setSelectedColorBoxes((prevSelected) => [
+  //       ...prevSelected,
+  //       colorObject.id,
+  //     ]);
+      
+  //   }
+  // };
 
   const handleColorBoxBlur = () => {
     setEditingColorBox(null);
   };
+
   const toggleTheme = () => {
     setThemeMode(themeMode === "light" ? "dark" : "light");
   };
@@ -195,6 +293,16 @@ const Main = () => {
         }}
       >
         <Typography variant="h2">Color Chip</Typography>
+        <Select
+          value={colorFormat}
+          onChange={(e) => setColorFormat(e.target.value)}
+          sx={{ maxWidth: 100 }}
+        >
+          <MenuItem value="hex">Hex</MenuItem>
+          <MenuItem value="rgb">RGB</MenuItem>
+          <MenuItem value="hsl">HSL</MenuItem>
+        </Select>
+
         <IconButton
           sx={{ position: "absolute", top: 20, right: 20 }}
           onClick={toggleTheme}
@@ -257,7 +365,7 @@ const Main = () => {
             />
 
             <TextField
-              label="색상코드를 기입해주세요"
+              label="색상코드를 기입해주세요 (hex 기준)"
               sx={{
                 maxWidth: 550,
                 width: "100%",
@@ -336,6 +444,13 @@ const Main = () => {
                 >
                   {showChips ? "색상 칩 제거" : "색상 칩 보기"}
                 </Button>
+                {/* <Button
+                  variant="contained"
+                  onClick={copySelectedColorValues}
+                  disabled={selectedColorBoxes.length === 0}
+                >
+                  선택한 색상 코드 복사
+                </Button> */}
                 {/* 1) */}
                 {/* <Button variant="contained" onClick={toggleColorValues}>
                   색상 속성 코드 생략
@@ -385,7 +500,7 @@ const Main = () => {
           </Box>
 
           <div style={{ display: "flex", flexWrap: "wrap" }}>
-            {displayColors.map((colorObject, index) => (
+            {displayColors.map((colorObject) => (
               <Box
                 key={`colorBox_${colorObject.id}`}
                 width={100}
@@ -398,9 +513,11 @@ const Main = () => {
                   position: "relative",
                   cursor: "pointer",
                   border:
-                    editingColorBox === colorObject.id
-                      ? "2px dotted gold"
-                      : "none", // Add this line
+                  editingColorBox === colorObject.id
+                  ? "2px dotted gold"
+                  : selectedColorBoxes.includes(colorObject.id)
+                  ? "2px solid #29b6f6"
+                  : "none",
                 }}
               >
                 {editingColorBox === colorObject.id ? (
@@ -451,7 +568,6 @@ const Main = () => {
                         );
                         setDisplayColors(updatedDisplayColors);
                       }}
-                      onBlur={handleColorBoxBlur}
                     />
                   </Box>
                 ) : (
@@ -466,9 +582,7 @@ const Main = () => {
                           justifyContent: "center",
                           height: "100%",
                         }}
-                      >
-                        {/* {colorObject.value} */}
-                      </Box>
+                      ></Box>
                     </React.Fragment>
                   )
                 )}
